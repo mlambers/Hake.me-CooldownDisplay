@@ -17,7 +17,6 @@ CooldownDisplay.ShouldDraw = false
 local Assets = {}
 Assets.Images = {}
 Assets.Path = "panorama/images/spellicons/"
-Assets.Count = 0
 
 local boxValue = {}
 boxValue.BoxSize = Menu.GetValue(CooldownDisplay.offsetBoxSize)
@@ -31,8 +30,8 @@ local function_floor = math.floor
 function CooldownDisplay.InitConfig()
 	boxValue.BoxSize = Menu.GetValue(CooldownDisplay.offsetBoxSize)
 	boxValue.levelBoxSize = function_floor(boxValue.BoxSize * 0.2)
-    boxValue.FontSpellLevel = Renderer.LoadFont("Verdana", function_floor((boxValue.BoxSize - 2) * 0.45), Enum.FontWeight.BOLD)
-	boxValue.FontCooldown = Renderer.LoadFont("Verdana", function_floor((boxValue.BoxSize - 2) * 0.643), Enum.FontWeight.BOLD)
+    boxValue.FontSpellLevel = Renderer.LoadFont("Verdana", function_floor((boxValue.BoxSize - 2) * 0.45), Enum.FontWeight.NORMAL)
+	boxValue.FontCooldown = Renderer.LoadFont("Verdana", function_floor((boxValue.BoxSize - 2) * 0.6), Enum.FontWeight.BOLD)
 	boxValue.BoxHeight = Menu.GetValue(CooldownDisplay.offsetHeight)
 end
 
@@ -65,10 +64,7 @@ function CooldownDisplay.LoadImagesTable()
 			for key = 1, #EntityDataHeroes[PlayersTableName[1]] do
 				local TableData = EntityDataHeroes[PlayersTableName[1]][key]
 				if TableData then
-					
-					Assets.Count = Assets.Count + 1
 					CooldownDisplay.LoadImage("abilities_", TableData, Assets.Path)
-					
 				end
 			end
 			PlayersTableName[1] = nil
@@ -101,11 +97,10 @@ function CooldownDisplay.OnGameStart()
 	boxValue.FontSpellLevel = nil
 	boxValue.FontCooldown = nil
 	
-	for k, v in pairs(Assets.Images) do
+	for k in pairs(Assets.Images) do
 		Assets.Images[k] = nil
 	end
 	Assets.Images = {}
-	Assets.Count = 0
 	
 	CooldownDisplay.ShouldDraw = false
 	CooldownDisplay.NeedInit = true
@@ -125,11 +120,10 @@ function CooldownDisplay.OnGameEnd()
 	boxValue.FontSpellLevel = nil
 	boxValue.FontCooldown = nil
 	
-	for k, v in pairs(Assets.Images) do
+	for k in pairs(Assets.Images) do
 		Assets.Images[k] = nil
 	end
 	Assets.Images = {}
-	Assets.Count = 0
 	
 	CooldownDisplay.ShouldDraw = false
 	CooldownDisplay.NeedInit = true
@@ -149,11 +143,10 @@ function CooldownDisplay.OnScriptLoad()
 	boxValue.FontSpellLevel = nil
 	boxValue.FontCooldown = nil
 	
-	for k, v in pairs(Assets.Images) do
+	for k in pairs(Assets.Images) do
 		Assets.Images[k] = nil
 	end
 	Assets.Images = {}
-	Assets.Count = 0
 	
 	CooldownDisplay.ShouldDraw = false
 	CooldownDisplay.NeedInit = true
@@ -175,19 +168,17 @@ function CooldownDisplay.OnUpdate()
 	if CooldownDisplay.NeedInit == true then
 		CooldownDisplay.InitConfig()
 		CooldownDisplay.LoadImagesTable()
-		--Console.Print(Assets.Count)
 		CooldownDisplay.ShouldDraw = true
 		CooldownDisplay.NeedInit = false
 	end
 
 end
 
-function CooldownDisplay.draw_images(hero, ability, x, y, index)
+function CooldownDisplay.draw_images(hero, ability, x, y, index, heightBox)
 	local abilityName = Ability.GetName(ability)
 	local realX = index + x + (index * boxValue.BoxSize)
-	
     local castable = Ability.IsCastable(ability, NPC.GetMana(hero), true)
-
+	
     -- default colors = can cast
     local imageColor = { 255, 255, 255 }
     local outlineColor = { 0, 255 , 0 }
@@ -208,15 +199,15 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index)
 	-- Draw Ability image
     Renderer.SetDrawColor(imageColor[1], imageColor[2], imageColor[3], 255)
 	if Assets.Images["abilities_" .. abilityName] then
-		Renderer.DrawImage(Assets.Images["abilities_" .. abilityName], realX, y, boxValue.BoxSize, boxValue.BoxSize)
+		Renderer.DrawImage(Assets.Images["abilities_" .. abilityName], realX, y, boxValue.BoxSize, heightBox)
 	else
 		CooldownDisplay.LoadImage("abilities_", abilityName, Assets.Path)
-		Renderer.DrawImage(Assets.Images["abilities_" .. abilityName], realX, y, boxValue.BoxSize, boxValue.BoxSize)
+		Renderer.DrawImage(Assets.Images["abilities_" .. abilityName], realX, y, boxValue.BoxSize, heightBox)
 	end
 	
 	-- Draw Border
     Renderer.SetDrawColor(outlineColor[1], outlineColor[2], outlineColor[3], 255)
-    Renderer.DrawOutlineRect(realX, y, boxValue.BoxSize, boxValue.BoxSize)
+    Renderer.DrawOutlineRect(realX, y, boxValue.BoxSize, heightBox)
 	
 	-- Draw level value
 	local level = Ability.GetLevel(ability)
@@ -229,30 +220,29 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index)
 	local cdLength = Ability.GetCooldownLength(ability)
 	
 	if not Ability.IsReady(ability) and cdLength > 0.0 then
-        local cooldownRatio = Ability.GetCooldown(ability) / cdLength
-        local CooldownHeightBar = function_floor(boxValue.BoxSize * cooldownRatio)
+        local cooldownRatio = Ability.GetCooldown(ability) * (1 / cdLength)
+		local CooldownHeightBar = function_floor(heightBox * cooldownRatio)
 		
         Renderer.SetDrawColor(255, 255, 255, 50)
-        Renderer.DrawFilledRect(realX, y + (boxValue.BoxSize - CooldownHeightBar), boxValue.BoxSize, CooldownHeightBar)
+        Renderer.DrawFilledRect(realX, y + (heightBox - CooldownHeightBar), boxValue.BoxSize, CooldownHeightBar)
 
         -- Draw cooldown Text
 		local CDWidth, CDHeight = Renderer.MeasureText(boxValue.FontCooldown, function_floor(Ability.GetCooldown(ability)))
 		local CDPositionX = realX + function_floor((boxValue.BoxSize - CDWidth) * 0.5)
-		local CDPositionY = y + function_floor((boxValue.BoxSize - CDHeight) * 1.1)
-		Renderer.SetDrawColor(255, 255, 255)
+		local CDPositionY = y + function_floor((boxValue.BoxSize - CDHeight) * 1.15)
+		Renderer.SetDrawColor(255, 255, 255, 255)
         Renderer.DrawText(boxValue.FontCooldown, CDPositionX, CDPositionY, function_floor(Ability.GetCooldown(ability)), 0)
     end
 end
 
 
 function CooldownDisplay.DrawDisplay(heroes_ent)
-	local AbilityTable = {}
+	local AbilityTable = {nil, nil, nil, nil, nil, nil}
 	local index_abilities = 0
 	local origin = Entity.GetAbsOrigin(heroes_ent)
 	local HBO = NPC.GetHealthBarOffset(heroes_ent) 
 	origin:SetZ(origin:GetZ() + HBO)
-	--origin:SetY(origin:GetY() - 50.0)
-			
+	
 	local hx, hy, heroV = Renderer.WorldToScreen(origin)
 	if not heroV then return end
 	
@@ -267,21 +257,20 @@ function CooldownDisplay.DrawDisplay(heroes_ent)
 		end
 	end	
 	
-	hx = hx - function_floor(#AbilityTable * boxValue.BoxSize * 0.5)
-	local BoxWidth = function_floor(boxValue.BoxSize * #AbilityTable)
+	local BoxPosX = hx - function_floor( (#AbilityTable * 0.5) * boxValue.BoxSize )
+	local BoxWidth = function_floor(boxValue.BoxSize * index_abilities)
+	local BoxHeight = function_floor(boxValue.BoxSize + (boxValue.BoxSize * 0.15))
 	Renderer.SetDrawColor(0, 0, 0, 150)
-	Renderer.DrawFilledRect((hx - 2), PosY, BoxWidth, boxValue.BoxSize)
+	Renderer.DrawFilledRect(BoxPosX, PosY, BoxWidth, BoxHeight)
 				
 	Renderer.SetDrawColor(0, 0, 0, 255)
-	Renderer.DrawOutlineRect((hx - 2), PosY, BoxWidth, boxValue.BoxSize)
+	Renderer.DrawOutlineRect(BoxPosX, PosY, BoxWidth, BoxHeight)
 				
-	for i = 1, #AbilityTable do
+	for i =  #AbilityTable, 1, -1 do
 		local value_abilities = AbilityTable[i]
-		
-		CooldownDisplay.draw_images(heroes_ent, value_abilities, (hx - 2), PosY, (i - 1) )
+		CooldownDisplay.draw_images(heroes_ent, value_abilities, BoxPosX, PosY, (i - 1), BoxHeight )
 		AbilityTable[i] = nil
 	end
-	AbilityTable = nil
 end
 
 function CooldownDisplay.OnDraw()
@@ -293,8 +282,7 @@ function CooldownDisplay.OnDraw()
 	if CooldownDisplay.ShouldDraw == true then
 		for k = 1, Heroes.Count() do
 			local HeroValue = Heroes.Get(k)
-			
-			if HeroValue and not Entity.IsDormant(HeroValue) and Entity.IsAlive(HeroValue) and ( (not NPC.IsIllusion(HeroValue) and not Entity.IsSameTeam(MyHero, HeroValue) ) or ( NPC.GetUnitName(HeroValue) == "npc_dota_hero_morphling" and NPC.HasModifier(HeroValue, "modifier_morphling_replicate_manager") and not Entity.IsSameTeam(MyHero, HeroValue)) ) then
+			if HeroValue and not Entity.IsDormant(HeroValue) and Entity.IsAlive(HeroValue) and not Entity.IsSameTeam(MyHero, HeroValue) and not NPC.IsIllusion(HeroValue) and  Entity.IsPlayer(Entity.GetOwner(HeroValue)) then
 				local visibilityCheck = Entity.GetAbsOrigin(HeroValue)
 				local visibilityCheckX, visibilityCheckY, visibilityCheckV = Renderer.WorldToScreen(visibilityCheck)
 				
