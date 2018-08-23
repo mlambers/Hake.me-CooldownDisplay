@@ -51,6 +51,8 @@ end
 
 
 function CooldownDisplay.OnMenuOptionChange(option, old, new)
+	if Engine.IsInGame() == false then return end
+	if Menu.IsEnabled(CooldownDisplay.optionEnable) == false then return end
 	if not option then return end
     if option == CooldownDisplay.offsetBoxSize or option == CooldownDisplay.offsetHeight then
 		for k in pairs(CalcTable) do
