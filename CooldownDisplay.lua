@@ -1,6 +1,6 @@
--------------------
---- Version 0.5 ---
--------------------
+--------------------
+--- Version 0.5a ---
+--------------------
 
 local CooldownDisplay = {}
 
@@ -55,12 +55,12 @@ function CooldownDisplay.OnMenuOptionChange(option, old, new)
 	if Menu.IsEnabled(CooldownDisplay.optionEnable) == false then return end
 	if not option then return end
     if option == CooldownDisplay.offsetBoxSize or option == CooldownDisplay.offsetHeight then
+		memoizeCalc = nil
 		for k in pairs(CalcTable) do
 			CalcTable[k] = nil
 		end
 		CalcTable = {}
 		memoizeCalc = memoize(CooldownDisplay.Sum, CalcTable)
-		
 		
 		BoxValue.Size = Menu.GetValue(CooldownDisplay.offsetBoxSize)
 		BoxValue.Height = Menu.GetValue(CooldownDisplay.offsetHeight)
@@ -265,7 +265,7 @@ function CooldownDisplay.DrawDisplay(heroes_ent)
 	origin:SetZ(origin:GetZ() + HBO)
 	
 	local hx, hy, heroV = Renderer.WorldToScreen(origin)
-	if not heroV then return end
+	if heroV == false then return end
 	
 	local PosY = (hy - BoxValue.Height)
 	
@@ -318,14 +318,15 @@ function CooldownDisplay.OnUpdate()
 		TempTable = {
 			{nil, nil, nil, nil, nil, nil}, 
 			{nil, nil, nil}, 
-			{nil, nil, nil}
+			{nil, nil, nil},
+			{nil, nil, nil, nil}
 		}
 		
 		CooldownDisplay.ShouldDraw = true
 		CooldownDisplay.NeedInit = false
 	end
 	
-	if not myHero then return end
+	if myHero == nil then return end
 end
 
 function CooldownDisplay.OnDraw()
@@ -334,25 +335,23 @@ function CooldownDisplay.OnDraw()
 	if GameRules.GetGameState() < 4 then return end
 	if GameRules.GetGameState() > 5 then return end
 	
-	if not myHero then return end
+	if myHero == nil then return end
 	
 	if CooldownDisplay.ShouldDraw then	
 		for k = 1, Heroes.Count() do
 			local HeroValue = Heroes.Get(k)
 			
 			if HeroValue and Entity.IsDormant(HeroValue) == false and Entity.IsAlive(HeroValue) and Entity.IsSameTeam(myHero, HeroValue) == false and NPC.IsIllusion(HeroValue) == false and  Entity.IsPlayer(Entity.GetOwner(HeroValue)) then
-				local visibilityCheck = Entity.GetAbsOrigin(HeroValue)
-				local visibilityCheckX, visibilityCheckY, visibilityCheckV = Renderer.WorldToScreen(visibilityCheck)
+				TempTable[4][1] = Entity.GetAbsOrigin(HeroValue)
+				TempTable[4][2], TempTable[4][3], TempTable[4][4] = Renderer.WorldToScreen(TempTable[4][1])
 				
-				if visibilityCheckV and CooldownDisplay.IsOnScreen(visibilityCheckX, visibilityCheckY) then
+				if TempTable[4][4] and CooldownDisplay.IsOnScreen(TempTable[4][2], TempTable[4][3]) then
 					CooldownDisplay.DrawDisplay(HeroValue)
 				end
 				
 			end
 		end
 	end
-	
-	
 end
 
 return CooldownDisplay
