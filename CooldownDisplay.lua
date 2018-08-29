@@ -1,5 +1,5 @@
 --------------------
---- Version 0.5a ---
+--- Version 0.5b ---
 --------------------
 
 local CooldownDisplay = {}
@@ -49,10 +49,12 @@ function CooldownDisplay.LoadImage(name)
 	return Renderer.LoadImage("panorama/images/spellicons/" .. name .. "_png.vtex_c")
 end
 
-
 function CooldownDisplay.OnMenuOptionChange(option, old, new)
 	if Engine.IsInGame() == false then return end
 	if Menu.IsEnabled(CooldownDisplay.optionEnable) == false then return end
+	if GameRules.GetGameState() < 4 then return end
+	if GameRules.GetGameState() > 5 then return end
+	
 	if not option then return end
     if option == CooldownDisplay.offsetBoxSize or option == CooldownDisplay.offsetHeight then
 		memoizeCalc = nil
@@ -173,7 +175,7 @@ function CooldownDisplay.IsOnScreen(x, y)
 	return true
 end
 
-function CooldownDisplay.draw_images(hero, ability, x, y, index, heightBox)
+function CooldownDisplay.draw_images(hero, ability, x, y, index)
 	local abilityName = Ability.GetName(ability)
 	
 	if CooldownDisplay.FixImages[abilityName] then
@@ -192,7 +194,7 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index, heightBox)
 	TempTable[3][2] = 255
 	TempTable[3][3] = 0
 
-    if not castable then
+    if castable == false then
         if Ability.GetLevel(ability) == 0 then
 			TempTable[2][1] = 125
 			TempTable[2][2] = 125
@@ -223,11 +225,11 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index, heightBox)
 	
 	-- Draw Ability image
     Renderer.SetDrawColor(TempTable[2][1], TempTable[2][2], TempTable[2][3], 255)
-	Renderer.DrawImage(memoizeImages(abilityName), realX, y, BoxValue.Size, heightBox)
+	Renderer.DrawImage(memoizeImages(abilityName), realX, y, BoxValue.Size, BoxValue.Size)
 	
 	-- Draw Border
     Renderer.SetDrawColor(TempTable[3][1], TempTable[3][2], TempTable[3][3], 255)
-    Renderer.DrawOutlineRect(realX, y, BoxValue.Size, heightBox)
+    Renderer.DrawOutlineRect(realX, y, BoxValue.Size, BoxValue.Size)
 	
 	local level = Ability.GetLevel(ability)
 	
@@ -243,10 +245,10 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index, heightBox)
 	
 	if Ability.IsReady(ability) == false and cdLength > 0.0 then
         local cooldownRatio = Ability.GetCooldown(ability) * (1 / cdLength)
-		local CooldownHeightBar = FunctionFloor(heightBox * cooldownRatio)
+		local CooldownHeightBar = FunctionFloor(BoxValue.Size * cooldownRatio)
 		
         Renderer.SetDrawColor(255, 255, 255, 50)
-        Renderer.DrawFilledRect(realX, y + (heightBox - CooldownHeightBar), BoxValue.Size, CooldownHeightBar)
+        Renderer.DrawFilledRect(realX, y + (BoxValue.Size - CooldownHeightBar), BoxValue.Size, CooldownHeightBar)
 
         -- Draw cooldown Text
 		local CDWidth, CDHeight = Renderer.MeasureText(BoxValue.FontCooldown, FunctionFloor(Ability.GetCooldown(ability)))
@@ -258,37 +260,56 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index, heightBox)
     end
 end
 
-function CooldownDisplay.DrawDisplay(heroes_ent)
+function CooldownDisplay.DrawDisplay(ent, origin, HBO, AbilityList, TempValue)
 	local index_abilities = 0
-	local origin = Entity.GetAbsOrigin(heroes_ent)
-	local HBO = NPC.GetHealthBarOffset(heroes_ent) 
 	origin:SetZ(origin:GetZ() + HBO)
-	
-	local hx, hy, heroV = Renderer.WorldToScreen(origin)
-	if heroV == false then return end
-	
-	local PosY = (hy - BoxValue.Height)
-	
-	for i = 0, 6 do
-		local ability = NPC.GetAbilityByIndex(heroes_ent, i)
 
-		if ability and Entity.IsAbility(ability) and (Ability.IsHidden(ability) == false) and (Ability.IsAttributes(ability) == false) then
+	local hx, hy, heroV = Renderer.WorldToScreen(origin)
+	if heroV == nil then return end
+	
+	for idx = 0, 6 do
+		TempValue = NPC.GetAbilityByIndex(ent, idx)
+
+		if TempValue ~= nil and Entity.IsAbility(TempValue) and (Ability.IsHidden(TempValue) == false) and (Ability.IsAttributes(TempValue) == false) then
 			index_abilities = index_abilities + 1
-			TempTable[1][index_abilities] = ability
+			AbilityList[index_abilities] = TempValue
 		end
 	end	
 	
 	local BoxPosX = hx - FunctionFloor( (index_abilities * 0.5) * BoxValue.Size )
 	local BoxWidth = FunctionFloor(BoxValue.Size * index_abilities)
-	local BoxHeight = BoxValue.Size
 	Renderer.SetDrawColor(0, 0, 0, 150)
-	Renderer.DrawFilledRect(BoxPosX, PosY, BoxWidth, BoxHeight)
+	Renderer.DrawFilledRect(BoxPosX, (hy - BoxValue.Height), BoxWidth, BoxValue.Size)
+	
+	for k = #AbilityList, 1, -1 do
+		TempValue = AbilityList[k]
+		if TempValue ~= nil then
+			CooldownDisplay.draw_images(ent, TempValue, BoxPosX, (hy - BoxValue.Height), (k - 1))
+			AbilityList[k] = nil
+		end
+	end
+end
 
-	for i = #TempTable[1], 1, -1 do
-		local value_abilities = TempTable[1][i]
-		if value_abilities then
-			CooldownDisplay.draw_images(heroes_ent, value_abilities, BoxPosX, PosY, (i - 1), BoxHeight )
-			TempTable[1][i] = nil
+function CooldownDisplay.DrawObject()
+	local Object = nil
+	local PositionAbsOrigin = nil
+	local ZOffset = nil
+	local WorldX, WorldY, WorldV = nil, nil, nil
+	local AbilityList = {}
+	local TempValue = nil
+	
+	for i = 1, Heroes.Count() do
+		Object = Heroes.Get(i)
+			
+		if Object ~= nil and Entity.IsDormant(Object) == false and Entity.IsAlive(Object) and Entity.IsSameTeam(myHero, Object) == false and NPC.IsIllusion(Object) == false and Entity.IsPlayer(Entity.GetOwner(Object)) then
+			PositionAbsOrigin = Entity.GetAbsOrigin(Object)
+			ZOffset = NPC.GetHealthBarOffset(Object)
+			WorldX, WorldY, WorldV = Renderer.WorldToScreen(PositionAbsOrigin)
+
+			if WorldV ~= nil and CooldownDisplay.IsOnScreen(WorldX, WorldY) then
+				AbilityList = {nil, nil, nil, nil, nil, nil, nil}
+				CooldownDisplay.DrawDisplay(Object, PositionAbsOrigin, ZOffset, AbilityList, TempValue)
+			end		
 		end
 	end
 end
@@ -318,8 +339,7 @@ function CooldownDisplay.OnUpdate()
 		TempTable = {
 			{nil, nil, nil, nil, nil, nil}, 
 			{nil, nil, nil}, 
-			{nil, nil, nil},
-			{nil, nil, nil, nil}
+			{nil, nil, nil}
 		}
 		
 		CooldownDisplay.ShouldDraw = true
@@ -337,20 +357,8 @@ function CooldownDisplay.OnDraw()
 	
 	if myHero == nil then return end
 	
-	if CooldownDisplay.ShouldDraw then	
-		for k = 1, Heroes.Count() do
-			local HeroValue = Heroes.Get(k)
-			
-			if HeroValue and Entity.IsDormant(HeroValue) == false and Entity.IsAlive(HeroValue) and Entity.IsSameTeam(myHero, HeroValue) == false and NPC.IsIllusion(HeroValue) == false and  Entity.IsPlayer(Entity.GetOwner(HeroValue)) then
-				TempTable[4][1] = Entity.GetAbsOrigin(HeroValue)
-				TempTable[4][2], TempTable[4][3], TempTable[4][4] = Renderer.WorldToScreen(TempTable[4][1])
-				
-				if TempTable[4][4] and CooldownDisplay.IsOnScreen(TempTable[4][2], TempTable[4][3]) then
-					CooldownDisplay.DrawDisplay(HeroValue)
-				end
-				
-			end
-		end
+	if CooldownDisplay.ShouldDraw then
+		CooldownDisplay.DrawObject()
 	end
 end
 
