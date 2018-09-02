@@ -82,11 +82,9 @@ function CooldownDisplay.OnGameStart()
 	end
 	TempTable = {}
 	
-	
-	if myHero == nil then
-		myHero = Heroes.GetLocal()
+	for k in pairs(Assets.Images) do
+		Assets.Images[k] = nil
 	end
-	memoize = nil
 	Assets.Images = {}
 	memoizeImages = nil
 	
@@ -95,6 +93,12 @@ function CooldownDisplay.OnGameStart()
 	end
 	CalcTable = {}
 	memoizeCalc = nil
+	
+	memoize = nil
+	
+	if myHero == nil then
+		myHero = Heroes.GetLocal()
+	end
 	
 	CooldownDisplay.ShouldDraw = false
 	CooldownDisplay.NeedInit = true
@@ -106,7 +110,6 @@ function CooldownDisplay.OnGameEnd()
 	BoxValue.FontCooldown = nil
 	BoxValue.FontSpellLevel = nil
 	widthScreen, heightScreen = nil, nil
-	memoize = nil
 	
 	for i = #TempTable, 1, -1 do
 		TempTable[i] = nil
@@ -116,7 +119,6 @@ function CooldownDisplay.OnGameEnd()
 	for k in pairs(Assets.Images) do
 		Assets.Images[k] = nil
 	end
-	
 	Assets.Images = {}
 	memoizeImages = nil
 	
@@ -125,6 +127,8 @@ function CooldownDisplay.OnGameEnd()
 	end
 	CalcTable = {}
 	memoizeCalc = nil
+	
+	memoize = nil
 	
 	myHero = nil
 	CooldownDisplay.ShouldDraw = false
@@ -137,7 +141,6 @@ function CooldownDisplay.OnScriptLoad()
 	BoxValue.FontCooldown = nil
 	BoxValue.FontSpellLevel = nil
 	widthScreen, heightScreen = nil, nil
-	memoize = nil
 	
 	for i = #TempTable, 1, -1 do
 		TempTable[i] = nil
@@ -147,7 +150,6 @@ function CooldownDisplay.OnScriptLoad()
 	for k in pairs(Assets.Images) do
 		Assets.Images[k] = nil
 	end
-	
 	Assets.Images = {}
 	memoizeImages = nil
 	
@@ -156,6 +158,8 @@ function CooldownDisplay.OnScriptLoad()
 	end
 	CalcTable = {}
 	memoizeCalc = nil
+	
+	memoize = nil
 	
 	myHero = nil
 	CooldownDisplay.ShouldDraw = false
