@@ -1,5 +1,5 @@
 --------------------
---- Version 0.5b ---
+--- Version 0.5c ---
 --------------------
 
 local CooldownDisplay = {}
@@ -12,12 +12,6 @@ CooldownDisplay.offsetBoxSize = Menu.AddOption({"mlambers", "Cooldown display"},
 CooldownDisplay.offsetHeight = Menu.AddOption({"mlambers", "Cooldown display"}, "3. Height", "", -150, 150, 1)
 
 CooldownDisplay.NeedInit = true
-CooldownDisplay.ShouldDraw = false
-
-CooldownDisplay.FixImages = {
-	tusk_launch_snowball = "tusk_snowball",
-	monkey_king_primal_spring_early = "monkey_king_primal_spring"
-}
 
 local FunctionFloor = math.floor
 local memoize = nil
@@ -30,7 +24,6 @@ local myHero = nil
 local widthScreen, heightScreen = nil, nil
 
 local Assets = {}
-Assets.Images = {}
 
 local TempTable = {}
 
@@ -52,8 +45,7 @@ end
 function CooldownDisplay.OnMenuOptionChange(option, old, new)
 	if Engine.IsInGame() == false then return end
 	if Menu.IsEnabled(CooldownDisplay.optionEnable) == false then return end
-	if GameRules.GetGameState() < 4 then return end
-	if GameRules.GetGameState() > 5 then return end
+	if Heroes.GetLocal() == nil then return end
 	
 	if not option then return end
     if option == CooldownDisplay.offsetBoxSize or option == CooldownDisplay.offsetHeight then
@@ -82,10 +74,10 @@ function CooldownDisplay.OnGameStart()
 	end
 	TempTable = {}
 	
-	for k in pairs(Assets.Images) do
-		Assets.Images[k] = nil
+	for k in pairs(Assets) do
+		Assets[k] = nil
 	end
-	Assets.Images = {}
+	Assets = {}
 	memoizeImages = nil
 	
 	for k in pairs(CalcTable) do
@@ -100,7 +92,6 @@ function CooldownDisplay.OnGameStart()
 		myHero = Heroes.GetLocal()
 	end
 	
-	CooldownDisplay.ShouldDraw = false
 	CooldownDisplay.NeedInit = true
 end
 
@@ -116,10 +107,10 @@ function CooldownDisplay.OnGameEnd()
 	end
 	TempTable = {}
 	
-	for k in pairs(Assets.Images) do
-		Assets.Images[k] = nil
+	for k in pairs(Assets) do
+		Assets[k] = nil
 	end
-	Assets.Images = {}
+	Assets = {}
 	memoizeImages = nil
 	
 	for k in pairs(CalcTable) do
@@ -131,7 +122,7 @@ function CooldownDisplay.OnGameEnd()
 	memoize = nil
 	
 	myHero = nil
-	CooldownDisplay.ShouldDraw = false
+
 	CooldownDisplay.NeedInit = true
 end
 
@@ -147,10 +138,10 @@ function CooldownDisplay.OnScriptLoad()
 	end
 	TempTable = {}
 	
-	for k in pairs(Assets.Images) do
-		Assets.Images[k] = nil
+	for k in pairs(Assets) do
+		Assets[k] = nil
 	end
-	Assets.Images = {}
+	Assets = {}
 	memoizeImages = nil
 	
 	for k in pairs(CalcTable) do
@@ -162,7 +153,7 @@ function CooldownDisplay.OnScriptLoad()
 	memoize = nil
 	
 	myHero = nil
-	CooldownDisplay.ShouldDraw = false
+
 	CooldownDisplay.NeedInit = true
 end
 
@@ -180,12 +171,8 @@ function CooldownDisplay.IsOnScreen(x, y)
 end
 
 function CooldownDisplay.draw_images(hero, ability, x, y, index)
-	local abilityName = Ability.GetName(ability)
-	
-	if CooldownDisplay.FixImages[abilityName] then
-		abilityName = CooldownDisplay.FixImages[abilityName]
-	end
-	
+	local abilityName = Ability.GetTextureName(ability)
+
 	local realX = index + x + (index * BoxValue.Size)
     local castable = Ability.IsCastable(ability, NPC.GetMana(hero), true)
 	
@@ -319,17 +306,11 @@ function CooldownDisplay.DrawObject()
 end
 
 function CooldownDisplay.OnUpdate()
-	if Engine.IsInGame() == false then return end
 	if Menu.IsEnabled(CooldownDisplay.optionEnable) == false then return end
-	if GameRules.GetGameState() < 4 then return end
-	if GameRules.GetGameState() > 5 then return end
 	
 	if CooldownDisplay.NeedInit == true then	
-		if myHero == nil then
-			myHero = Heroes.GetLocal()
-		end
 		memoize = require("Utility/memoize")
-		memoizeImages = memoize(CooldownDisplay.LoadImage, Assets.Images)
+		memoizeImages = memoize(CooldownDisplay.LoadImage, Assets)
 		
 		memoizeCalc = memoize(CooldownDisplay.Sum, CalcTable)
 		
@@ -346,7 +327,10 @@ function CooldownDisplay.OnUpdate()
 			{nil, nil, nil}
 		}
 		
-		CooldownDisplay.ShouldDraw = true
+		if myHero == nil then
+			myHero = Heroes.GetLocal()
+		end
+		
 		CooldownDisplay.NeedInit = false
 	end
 	
@@ -361,9 +345,7 @@ function CooldownDisplay.OnDraw()
 	
 	if myHero == nil then return end
 	
-	if CooldownDisplay.ShouldDraw then
-		CooldownDisplay.DrawObject()
-	end
+	CooldownDisplay.DrawObject()
 end
 
 return CooldownDisplay
