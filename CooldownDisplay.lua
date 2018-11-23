@@ -1,17 +1,16 @@
 --------------------
---- Version 0.5c ---
+--- Version 0.6 ---
 --------------------
 
-local CooldownDisplay = {}
-
-------------------------
------ *** Menu *** -----
-------------------------
-CooldownDisplay.optionEnable = Menu.AddOption({"mlambers", "Cooldown display"}, "1. Enable.", "Enable/Disable this script.")
-CooldownDisplay.offsetBoxSize = Menu.AddOption({"mlambers", "Cooldown display"}, "2. Size", "", 21, 64, 1)
-CooldownDisplay.offsetHeight = Menu.AddOption({"mlambers", "Cooldown display"}, "3. Height", "", -150, 150, 1)
-
-CooldownDisplay.NeedInit = true
+local CooldownDisplay = {
+	------------------------
+	----- *** Menu *** -----
+	------------------------
+	optionEnable = Menu.AddOption({"mlambers", "Cooldown display"}, "1. Enable.", "Enable/Disable this script."),
+	offsetBoxSize = Menu.AddOption({"mlambers", "Cooldown display"}, "2. Size", "", 21, 64, 1),
+	offsetHeight = Menu.AddOption({"mlambers", "Cooldown display"}, "3. Height", "", -150, 150, 1),
+	NeedInit = true
+}
 
 local FunctionFloor = math.floor
 local memoize = nil
@@ -24,18 +23,17 @@ local myHero = nil
 local widthScreen, heightScreen = nil, nil
 
 local Assets = {}
-
 local TempTable = {}
 
-local BoxValue = {}
-BoxValue.Size = nil
-BoxValue.Height = nil
-BoxValue.FontCooldown = nil
-BoxValue.FontSpellLevel = nil
+local BoxValue = {
+	Size = nil,
+	Height = nil,
+	FontCooldown = nil,
+	FontSpellLevel = nil
+}
 
-function CooldownDisplay.Sum( ... )
-	local arg = {...}
-	return FunctionFloor((BoxValue.Size - arg[2]) * arg[1])
+function CooldownDisplay.Sum(option1, option2)
+	return FunctionFloor((BoxValue.Size - option2) * option1)
 end
 
 function CooldownDisplay.LoadImage(name)
@@ -48,7 +46,9 @@ function CooldownDisplay.OnMenuOptionChange(option, old, new)
 	if Heroes.GetLocal() == nil then return end
 	
 	if not option then return end
-    if option == CooldownDisplay.offsetBoxSize or option == CooldownDisplay.offsetHeight then
+	
+    if option == CooldownDisplay.offsetBoxSize or option == CooldownDisplay.offsetHeight
+	then
 		memoizeCalc = nil
 		for k in pairs(CalcTable) do
 			CalcTable[k] = nil
@@ -159,21 +159,19 @@ end
 
 function CooldownDisplay.IsOnScreen(x, y)
 	if (x < 1) or (y < 1) then 
-		
 		return false 
 	end
-	if (x > widthScreen) or ( y > widthScreen) then 
-		
+	
+	if (x > widthScreen) or ( y > widthScreen) then 	
 		return false
 	end
 	
 	return true
 end
 
-function CooldownDisplay.draw_images(hero, ability, x, y, index)
+local function DrawImages(hero, ability, realX, y)
 	local abilityName = Ability.GetTextureName(ability)
-
-	local realX = index + x + (index * BoxValue.Size)
+	
     local castable = Ability.IsCastable(ability, NPC.GetMana(hero), true)
 	
     -- default colors = can cast
@@ -251,12 +249,8 @@ function CooldownDisplay.draw_images(hero, ability, x, y, index)
     end
 end
 
-function CooldownDisplay.DrawDisplay(ent, origin, HBO, AbilityList, TempValue)
+local function DrawDisplay(ent, hx, hy, AbilityList, TempValue)
 	local index_abilities = 0
-	origin:SetZ(origin:GetZ() + HBO)
-
-	local hx, hy, heroV = Renderer.WorldToScreen(origin)
-	if heroV == nil then return end
 	
 	for idx = 0, 6 do
 		TempValue = NPC.GetAbilityByIndex(ent, idx)
@@ -267,21 +261,22 @@ function CooldownDisplay.DrawDisplay(ent, origin, HBO, AbilityList, TempValue)
 		end
 	end	
 	
-	local BoxPosX = hx - FunctionFloor( (index_abilities * 0.5) * BoxValue.Size )
+	local BoxPosX = hx - FunctionFloor((index_abilities * 0.5) * BoxValue.Size)
+	local BoxPosY = (hy - BoxValue.Height)
 	local BoxWidth = FunctionFloor(BoxValue.Size * index_abilities)
 	Renderer.SetDrawColor(0, 0, 0, 150)
-	Renderer.DrawFilledRect(BoxPosX, (hy - BoxValue.Height), BoxWidth, BoxValue.Size)
+	Renderer.DrawFilledRect(BoxPosX, BoxPosY, BoxWidth, BoxValue.Size)
 	
 	for k = #AbilityList, 1, -1 do
 		TempValue = AbilityList[k]
 		if TempValue ~= nil then
-			CooldownDisplay.draw_images(ent, TempValue, BoxPosX, (hy - BoxValue.Height), (k - 1))
+			DrawImages(ent, TempValue, ((k - 1) + BoxPosX + ((k - 1) * BoxValue.Size)), BoxPosY)
 			AbilityList[k] = nil
 		end
 	end
 end
 
-function CooldownDisplay.DrawObject()
+local function DrawObject()
 	local Object = nil
 	local PositionAbsOrigin = nil
 	local ZOffset = nil
@@ -294,12 +289,14 @@ function CooldownDisplay.DrawObject()
 			
 		if Object ~= nil and Entity.IsDormant(Object) == false and Entity.IsAlive(Object) and Entity.IsSameTeam(myHero, Object) == false and NPC.IsIllusion(Object) == false and Entity.IsPlayer(Entity.GetOwner(Object)) then
 			PositionAbsOrigin = Entity.GetAbsOrigin(Object)
-			ZOffset = NPC.GetHealthBarOffset(Object)
 			WorldX, WorldY, WorldV = Renderer.WorldToScreen(PositionAbsOrigin)
 
 			if WorldV ~= nil and CooldownDisplay.IsOnScreen(WorldX, WorldY) then
 				AbilityList = {nil, nil, nil, nil, nil, nil, nil}
-				CooldownDisplay.DrawDisplay(Object, PositionAbsOrigin, ZOffset, AbilityList, TempValue)
+				ZOffset = NPC.GetHealthBarOffset(Object)
+				PositionAbsOrigin:SetZ(PositionAbsOrigin:GetZ() + ZOffset)
+				WorldX, WorldY, WorldV = Renderer.WorldToScreen(PositionAbsOrigin)
+				DrawDisplay(Object, WorldX, WorldY, AbilityList, TempValue)
 			end		
 		end
 	end
@@ -345,7 +342,7 @@ function CooldownDisplay.OnDraw()
 	
 	if myHero == nil then return end
 	
-	CooldownDisplay.DrawObject()
+	DrawObject()
 end
 
 return CooldownDisplay
