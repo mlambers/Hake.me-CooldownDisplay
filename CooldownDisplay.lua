@@ -1,5 +1,5 @@
 --------------------
---- Version 0.6 ---
+--- Version 0.7 ---
 --------------------
 
 local CooldownDisplay = {
@@ -123,6 +123,7 @@ function CooldownDisplay.OnGameEnd()
 	
 	myHero = nil
 
+	collectgarbage("collect")
 	CooldownDisplay.NeedInit = true
 end
 
@@ -158,22 +159,14 @@ function CooldownDisplay.OnScriptLoad()
 end
 
 function CooldownDisplay.IsOnScreen(x, y)
-	if (x < 1) or (y < 1) then 
+	if (x < 1) or (y < 1) or (x > widthScreen) or (y > heightScreen) then 
 		return false 
-	end
-	
-	if (x > widthScreen) or ( y > widthScreen) then 	
-		return false
 	end
 	
 	return true
 end
 
 local function DrawImages(hero, ability, realX, y)
-	local abilityName = Ability.GetTextureName(ability)
-	
-    local castable = Ability.IsCastable(ability, NPC.GetMana(hero), true)
-	
     -- default colors = can cast
 	TempTable[2][1] = 255
 	TempTable[2][2] = 255
@@ -183,7 +176,9 @@ local function DrawImages(hero, ability, realX, y)
 	TempTable[3][2] = 255
 	TempTable[3][3] = 0
 
-    if castable == false then
+	local TargetMana = NPC.GetMana(hero)
+    
+	if Ability.IsCastable(ability, TargetMana, true) == false then
         if Ability.GetLevel(ability) == 0 then
 			TempTable[2][1] = 125
 			TempTable[2][2] = 125
@@ -193,7 +188,7 @@ local function DrawImages(hero, ability, realX, y)
 			TempTable[3][2] = 0
 			TempTable[3][3] = 0
            
-        elseif Ability.GetManaCost(ability) > NPC.GetMana(hero) then
+        elseif Ability.GetManaCost(ability) > TargetMana then
 			TempTable[2][1] = 150
 			TempTable[2][2] = 150
 			TempTable[2][3] = 255
@@ -214,7 +209,7 @@ local function DrawImages(hero, ability, realX, y)
 	
 	-- Draw Ability image
     Renderer.SetDrawColor(TempTable[2][1], TempTable[2][2], TempTable[2][3], 255)
-	Renderer.DrawImage(memoizeImages(abilityName), realX, y, BoxValue.Size, BoxValue.Size)
+	Renderer.DrawImage(memoizeImages(Ability.GetTextureName(ability)), realX, y, BoxValue.Size, BoxValue.Size)
 	
 	-- Draw Border
     Renderer.SetDrawColor(TempTable[3][1], TempTable[3][2], TempTable[3][3], 255)
@@ -244,6 +239,7 @@ local function DrawImages(hero, ability, realX, y)
 			
 		local CDPositionX = realX + memoizeCalc(0.5, CDWidth)
 		local CDPositionY = y +  memoizeCalc(1.15, CDHeight)
+		
 		Renderer.SetDrawColor(255, 255, 255, 255)
         Renderer.DrawText(BoxValue.FontCooldown, CDPositionX, CDPositionY, FunctionFloor(Ability.GetCooldown(ability)), 0)
     end
@@ -253,7 +249,7 @@ local function DrawDisplay(ent, hx, hy, AbilityList, TempValue)
 	local index_abilities = 0
 	
 	for idx = 0, 6 do
-		TempValue = NPC.GetAbilityByIndex(ent, idx)
+		TempValue = NPC.GetAbilityByIndex(ent, idx) or nil
 
 		if TempValue ~= nil and Entity.IsAbility(TempValue) and (Ability.IsHidden(TempValue) == false) and (Ability.IsAttributes(TempValue) == false) then
 			index_abilities = index_abilities + 1
@@ -264,6 +260,7 @@ local function DrawDisplay(ent, hx, hy, AbilityList, TempValue)
 	local BoxPosX = hx - FunctionFloor((index_abilities * 0.5) * BoxValue.Size)
 	local BoxPosY = (hy - BoxValue.Height)
 	local BoxWidth = FunctionFloor(BoxValue.Size * index_abilities)
+	
 	Renderer.SetDrawColor(0, 0, 0, 150)
 	Renderer.DrawFilledRect(BoxPosX, BoxPosY, BoxWidth, BoxValue.Size)
 	
@@ -285,7 +282,7 @@ local function DrawObject()
 	local TempValue = nil
 	
 	for i = 1, Heroes.Count() do
-		Object = Heroes.Get(i)
+		Object = Heroes.Get(i) or nil
 			
 		if Object ~= nil and Entity.IsDormant(Object) == false and Entity.IsAlive(Object) and Entity.IsSameTeam(myHero, Object) == false and NPC.IsIllusion(Object) == false and Entity.IsPlayer(Entity.GetOwner(Object)) then
 			PositionAbsOrigin = Entity.GetAbsOrigin(Object)
