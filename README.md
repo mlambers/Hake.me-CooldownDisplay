@@ -1,1 +1,1 @@
-# hake.me-CooldownDisplay Version 0.7
+# hake.me-CooldownDisplay Version 0.9
